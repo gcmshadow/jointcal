@@ -556,6 +556,8 @@ class JointcalTask(pipeBase.CmdLineTask):
         filters = collections.Counter(filters)
 
         associations.computeCommonTangentPoint()
+        epoch = self._compute_proper_motion_epoch(associations.getCcdImageList())
+        assocations.setEpoch(epoch.jyear)
 
         boundingCircle = associations.computeBoundingCircle()
         center = lsst.geom.SpherePoint(boundingCircle.getCenter())
@@ -571,19 +573,19 @@ class JointcalTask(pipeBase.CmdLineTask):
         tract = dataRefs[0].dataId['tract']
 
         if self.config.doAstrometry:
-            astrometry = self._do_load_refcat_and_fit(associations, defaultFilter, center, radius,
+            astrometry = self._do_load_refcat_and_fit(associations, defaultFilter, center, radius, epoch,
                                                       name="astrometry",
                                                       refObjLoader=self.astrometryRefObjLoader,
                                                       referenceSelector=self.astrometryReferenceSelector,
                                                       fit_function=self._fit_astrometry,
                                                       profile_jointcal=profile_jointcal,
-                                                      tract=tract)
+                                                      tract=tract,)
             self._write_astrometry_results(associations, astrometry.model, visit_ccd_to_dataRef)
         else:
             astrometry = Astrometry(None, None, None)
 
         if self.config.doPhotometry:
-            photometry = self._do_load_refcat_and_fit(associations, defaultFilter, center, radius,
+            photometry = self._do_load_refcat_and_fit(associations, defaultFilter, center, radius, epoch,
                                                       name="photometry",
                                                       refObjLoader=self.photometryRefObjLoader,
                                                       referenceSelector=self.photometryReferenceSelector,
@@ -667,7 +669,7 @@ class JointcalTask(pipeBase.CmdLineTask):
         mjds = [ccdImage.getMjd() for ccdImage in ccdImageList]
         return astropy.time.Time(np.mean(mjds), format='mjd', scale="tai")
 
-    def _do_load_refcat_and_fit(self, associations, defaultFilter, center, radius,
+    def _do_load_refcat_and_fit(self, associations, defaultFilter, center, radius, epoch,
                                 filters=[],
                                 tract="", profile_jointcal=False, match_cut=3.0,
                                 reject_bad_fluxes=False, *,
@@ -685,6 +687,8 @@ class JointcalTask(pipeBase.CmdLineTask):
             ICRS center of field to load from reference catalog.
         radius : `lsst.geom.Angle`
             On-sky radius to load from reference catalog.
+        epoch : `astropy.time.Time`
+            The date to use for proper motion corrections.
         name : `str`
             Name of thing being fit: "astrometry" or "photometry".
         refObjLoader : `lsst.meas.algorithms.LoadReferenceObjectsTask`
@@ -718,7 +722,6 @@ class JointcalTask(pipeBase.CmdLineTask):
                         associations.fittedStarListSize())
 
         applyColorterms = False if name.lower() == "astrometry" else self.config.applyColorTerms
-        epoch = self._compute_proper_motion_epoch(associations.getCcdImageList())
         refCat, fluxField = self._load_reference_catalog(refObjLoader, referenceSelector,
                                                          center, radius, defaultFilter,
                                                          applyColorterms=applyColorterms,
@@ -729,7 +732,8 @@ class JointcalTask(pipeBase.CmdLineTask):
                                      self.config.matchCut*lsst.geom.arcseconds,
                                      fluxField,
                                      refCoordinateErr=refCoordErr,
-                                     rejectBadFluxes=reject_bad_fluxes)
+                                     rejectBadFluxes=reject_bad_fluxes,
+                                     epoch)
         add_measurement(self.job, 'jointcal.collected_%s_refStars' % name,
                         associations.refStarListSize())
 
