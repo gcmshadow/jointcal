@@ -29,6 +29,7 @@
 #include <fstream>
 
 #include "lsst/jointcal/FittedStar.h"
+#include "lsst/jointcal/ProperMotion.h"
 #include "lsst/jointcal/StarList.h"
 
 namespace lsst {
@@ -45,6 +46,26 @@ public:
     RefStar(RefStar&&) = delete;
     RefStar& operator=(RefStar const&) = default;
     RefStar& operator=(RefStar&&) = delete;
+
+    // NOTE: we're storing a `ProperMotion const` here: is this a problem?
+    void setProperMotion(std::unique_ptr<ProperMotion> properMotion) {
+        _properMotion = std::move(properMotion);
+    }
+    // ProperMotion getProperMotion() const { return _properMotion; }
+
+    /**
+     * Apply proper motion correction to the input star, returning a star with PM-corrected coordinates and
+     * coordinate errors.
+     *
+     * @param star The star to correct for this proper motion.
+     * @param timeDeltaYears The difference in time from the correction epoch to correct for, in years.
+     *
+     * @return The star with corrected coordinates.
+     */
+    FatPoint& applyProperMotion(FatPoint& star, double timeDeltaYears);
+
+private:
+    std::unique_ptr<ProperMotion const> _properMotion;
 };
 
 /****** RefStarList ***********/

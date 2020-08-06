@@ -31,6 +31,8 @@
 namespace lsst {
 namespace jointcal {
 
+FatPoint &RefStar::applyProperMotion(FatPoint &star, double timeDeltaYears) { return star; }
+
 BaseStarList &Ref2Base(RefStarList &This) { return (BaseStarList &)This; }
 
 BaseStarList *Ref2Base(RefStarList *This) { return (BaseStarList *)This; }

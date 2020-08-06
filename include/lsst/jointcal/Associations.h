@@ -66,9 +66,10 @@ public:
      * Source selection is performed in python, so Associations' constructor
      * only initializes a couple of variables.
      */
-    Associations()
+    Associations(double epoch = 0)
             : _commonTangentPoint(Point(std::numeric_limits<double>::quiet_NaN(),
-                                        std::numeric_limits<double>::quiet_NaN())) {}
+                                        std::numeric_limits<double>::quiet_NaN())),
+              _epoch(epoch) {}
 
     /**
      * Create an Associations object from a pre-built list of ccdImages.
@@ -78,10 +79,11 @@ public:
      *
      * @param imageList A pre-built ccdImage list.
      */
-    Associations(CcdImageList const &imageList)
+    Associations(CcdImageList const &imageList, double epoch = 0)
             : ccdImageList(imageList),
               _commonTangentPoint(Point(std::numeric_limits<double>::quiet_NaN(),
-                                        std::numeric_limits<double>::quiet_NaN())) {}
+                                        std::numeric_limits<double>::quiet_NaN())),
+              _epoch(epoch) {}
 
     /// No moves or copies: jointcal only ever needs one Associations object.
     Associations(Associations const &) = delete;
@@ -103,6 +105,8 @@ public:
 
     //! can be used to project sidereal coordinates related to the image set on a plane.
     Point getCommonTangentPoint() const { return _commonTangentPoint; }
+
+    double getEpoch() { return _epoch; }
 
     /**
      * @brief      Create a ccdImage from an exposure catalog and metadata, and add it to the list.
@@ -204,6 +208,14 @@ private:
     void selectFittedStars(int minMeasurements);
 
     /**
+     * Correct MeasuredStar positions for known refcat proper motions.
+     *
+     * Call this after selectFittedStars() but before normalizeFittedStars(): it assumes assumes that each
+     * measuredStar points to a fittedStar.
+     */
+    void _applyProperMotions() const;
+
+    /**
      * Make fitted star positions and fluxes be the average of their measured stars.
      *
      * Only call after selectFittedStars() has been called: it assumes that each measuredStar points to a
@@ -212,6 +224,7 @@ private:
     void normalizeFittedStars() const;
 
     Point _commonTangentPoint;
+    double _epoch;
 };
 
 }  // namespace jointcal

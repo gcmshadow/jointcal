@@ -51,7 +51,8 @@ AstrometryFit::AstrometryFit(std::shared_ptr<Associations> associations,
           _nParDistortions(0),
           _nParPositions(0),
           _nParRefrac(_associations->getNFilters()),
-          _posError(posError) {
+          _posError(posError),
+          _epoch(_associations->getEpoch()) {
     _log = LOG_GET("jointcal.AstrometryFit");
     _JDRef = 0;
 
@@ -72,6 +73,7 @@ AstrometryFit::AstrometryFit(std::shared_ptr<Associations> associations,
     LOGLS_INFO(_log, "Reference Color: " << _referenceColor << " sig " << _sigCol);
 }
 
+// TODO: this needs to go away!
 #define NPAR_PM 2
 
 /* ! this routine is used in 3 instances: when computing
