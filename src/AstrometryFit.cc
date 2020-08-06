@@ -83,10 +83,10 @@ Point AstrometryFit::transformFittedStar(FittedStar const &fittedStar, Astrometr
                                          Point const &refractionVector, double refractionCoeff,
                                          double mjd) const {
     Point fittedStarInTP = sky2TP.apply(fittedStar);
-    if (fittedStar.mightMove) {
-        fittedStarInTP.x += fittedStar.pmx * mjd;
-        fittedStarInTP.y += fittedStar.pmy * mjd;
-    }
+    // if (fittedStar.mightMove) {
+    //     fittedStarInTP.x += fittedStar.pmx * mjd;
+    //     fittedStarInTP.y += fittedStar.pmy * mjd;
+    // }
     // account for atmospheric refraction: does nothing if color
     // have not been assigned
     // the color definition shouldbe the same when computing derivatives
@@ -213,13 +213,13 @@ void AstrometryFit::leastSquareDerivativesMeasurement(CcdImage const &ccdImage, 
         }
         /* only consider proper motions of objects allowed to move,
         unless the fit is going to be degenerate */
-        if (_fittingPM && fs->mightMove) {
-            H(ipar, 0) = -mjd;  // Sign unchecked but consistent with above
-            H(ipar + 1, 1) = -mjd;
-            indices[ipar] = fs->getIndexInMatrix() + 2;
-            indices[ipar + 1] = fs->getIndexInMatrix() + 3;
-            ipar += npar_pm;
-        }
+        // if (_fittingPM && fs->mightMove) {
+        //     H(ipar, 0) = -mjd;  // Sign unchecked but consistent with above
+        //     H(ipar + 1, 1) = -mjd;
+        //     indices[ipar] = fs->getIndexInMatrix() + 2;
+        //     indices[ipar + 1] = fs->getIndexInMatrix() + 3;
+        //     ipar += npar_pm;
+        // }
         if (_fittingRefrac) {
             /* if the definition of color changes, it has to remain
                consistent with transformFittedStar */
@@ -476,7 +476,7 @@ void AstrometryFit::assignIndices(std::string const &whatToFit) {
             // - in GetMeasuredStarIndices
             fittedStar->setIndexInMatrix(ipar);
             ipar += 2;
-            if ((_fittingPM)&fittedStar->mightMove) ipar += NPAR_PM;
+            // if ((_fittingPM)&fittedStar->mightMove) ipar += NPAR_PM;
         }
     }
     _nParPositions = ipar - _nParDistortions;
@@ -504,10 +504,10 @@ void AstrometryFit::offsetParams(Eigen::VectorXd const &delta) {
             Eigen::Index index = fs.getIndexInMatrix();
             fs.x += delta(index);
             fs.y += delta(index + 1);
-            if ((_fittingPM)&fs.mightMove) {
-                fs.pmx += delta(index + 2);
-                fs.pmy += delta(index + 3);
-            }
+            // if ((_fittingPM)&fs.mightMove) {
+            //     fs.pmx += delta(index + 2);
+            //     fs.pmy += delta(index + 3);
+            // }
         }
     }
     if (_fittingRefrac) {
