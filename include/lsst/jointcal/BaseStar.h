@@ -26,6 +26,7 @@
 #define LSST_JOINTCAL_BASE_STAR_H
 
 #include <iostream>
+#include <iomanip>
 #include <cstdio>
 #include <string>
 #include <sstream>
@@ -80,7 +81,8 @@ public:
     }
 
     virtual void print(std::ostream &out) const {
-        out << "x: " << x << " y: " << y << " flux: " << _flux << " fluxErr: " << _fluxErr;
+        out << "x: " << std::setprecision(12) << x << " y: " << y << " flux: " << _flux
+            << " fluxErr: " << _fluxErr;
     }
 
     BaseStar &operator=(Point const &point) {
