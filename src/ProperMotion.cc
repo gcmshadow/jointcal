@@ -22,30 +22,28 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include <algorithm>
-#include <assert.h>
-#include <iomanip>
-
-#include "lsst/jointcal/RefStar.h"
+#include <cmath>
+#include <iostream>
+#include "lsst/geom/SpherePoint.h"
+#include "lsst/jointcal/ProperMotion.h"
+#include "lsst/jointcal/MeasuredStar.h"
 
 namespace lsst {
 namespace jointcal {
 
-std::shared_ptr<MeasuredStar> RefStar::applyProperMotion(std::shared_ptr<MeasuredStar> star,
-                                                         double timeDeltaYears) const {
-    if (_properMotion == nullptr) {
-        return star;
-    } else {
-        return _properMotion->apply(star, timeDeltaYears);
-    }
+std::shared_ptr<MeasuredStar> ProperMotion::apply(std::shared_ptr<MeasuredStar> star,
+                                                  double timeDeltaYears) const {
+    geom::SpherePoint spherePoint(star->x, star->y, geom::degrees);
+    double amount = std::hypot(_ra * timeDeltaYears, _dec * timeDeltaYears);
+    auto result = spherePoint.offset(_offsetBearing * geom::radians, amount * geom::radians);
+    auto newStar = std::make_shared<MeasuredStar>(*star);
+    std::cout << "%%%%%%%%%%%%%%%%%%%%%%" << std::endl;
+    std::cout << spherePoint << " " << result << std::endl;
+    std::cout << "RA: " << result.getRa().asDegrees() << std::endl;
+    newStar->x = result.getRa().asDegrees();
+    newStar->y = result.getDec().asDegrees();
+    return newStar;
 }
 
-BaseStarList &Ref2Base(RefStarList &This) { return (BaseStarList &)This; }
-
-BaseStarList *Ref2Base(RefStarList *This) { return (BaseStarList *)This; }
-
-const BaseStarList &Ref2Base(const RefStarList &This) { return (const BaseStarList &)This; }
-
-const BaseStarList *Ref2Base(const RefStarList *This) { return (BaseStarList *)This; }
 }  // namespace jointcal
 }  // namespace lsst

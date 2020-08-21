@@ -231,19 +231,20 @@ void Associations::collectRefStars(afw::table::SimpleCatalog &refCat, geom::Angl
     }
 
     // Handle reference catalogs that don't have proper motion & error
-    afw::table::Key<double> pmRaKey, pmDecKey, pmRaErrKey, pmDecErrKey, pmRaDecCovKey;
+    afw::table::Key<geom::Angle> pmRaKey, pmDecKey;
+    afw::table::Key<float> pmRaErrKey, pmDecErrKey, pmRaDecCovKey;
     try {
-        auto pmRaKey = refCat.getSchema().find<double>("pm_ra").key;
-        auto pmDecKey = refCat.getSchema().find<double>("pm_dec").key;
-        auto pmRaErrKey = refCat.getSchema().find<double>("pm_raErr").key;
-        auto pmDecErrKey = refCat.getSchema().find<double>("pm_decErr").key;
+        pmRaKey = refCat.getSchema().find<geom::Angle>("pm_ra").key;
+        pmDecKey = refCat.getSchema().find<geom::Angle>("pm_dec").key;
+        pmRaErrKey = refCat.getSchema().find<float>("pm_raErr").key;
+        pmDecErrKey = refCat.getSchema().find<float>("pm_decErr").key;
     } catch (pex::exceptions::NotFoundError &) {
         LOGLS_WARN(_log, "Not applying proper motion data: not all fields available.");
     }
 
     // TODO: we aren't getting covariances from Gaia yet, so maybe ignore this for now?
     try {
-        auto pmRaDecCovKey = refCat.getSchema().find<double>("pm_ra_Dec_Cov").key;
+        pmRaDecCovKey = refCat.getSchema().find<float>("pm_ra_Dec_Cov").key;
     } catch (pex::exceptions::NotFoundError &) {
         LOGLS_WARN(_log, "No ra/dec proper motion covariances in refcat.");
     }
@@ -273,18 +274,18 @@ void Associations::collectRefStars(afw::table::SimpleCatalog &refCat, geom::Angl
             star->vy = std::pow(refCoordinateErr / 1000. / 3600., 2);
         }
 
-        std::unique_ptr<ProperMotion> properMotion;
         if (pmRaKey.isValid()) {
             if (pmRaDecCovKey.isValid()) {
-                properMotion = std::make_unique<ProperMotion>(
-                        record->get(pmRaKey), record->get(pmDecKey), record->get(pmRaErrKey),
-                        record->get(pmDecErrKey), record->get(pmRaDecCovKey));
+                auto properMotion = std::make_unique<ProperMotion const>(
+                        record->get(pmRaKey).asRadians(), record->get(pmDecKey).asRadians(),
+                        record->get(pmRaErrKey), record->get(pmDecErrKey), record->get(pmRaDecCovKey));
+                star->setProperMotion(properMotion);
             } else {
-                properMotion =
-                        std::make_unique<ProperMotion>(record->get(pmRaKey), record->get(pmDecKey),
-                                                       record->get(pmRaErrKey), record->get(pmDecErrKey));
+                auto properMotion = std::make_unique<ProperMotion const>(
+                        record->get(pmRaKey).asRadians(), record->get(pmDecKey).asRadians(),
+                        record->get(pmRaErrKey), record->get(pmDecErrKey));
+                star->setProperMotion(properMotion);
             }
-            star->setProperMotion(properMotion);
         }
 
         // TODO: cook up a covariance as none of our current refcats have it
@@ -386,7 +387,7 @@ void Associations::_applyProperMotions() const {
             if (fittedStar->getRefStar()) {
                 // NOTE: MJD is not the right time unit here! We want something in years, not days...
                 double deltaYears = _epoch - ccdImage->getMjd();
-                measuredStar = fittedStar->getRefStar()->applyProperMotion(*measuredStar, deltaYears);
+                measuredStar = fittedStar->getRefStar()->applyProperMotion(measuredStar, deltaYears);
             }
         }
     }

@@ -35,28 +35,34 @@
 namespace lsst {
 namespace jointcal {
 
+class MeasuredStar;
+
 /**
  * Objects used as position/flux anchors (e.g. Gaia DR2 stars). Coordinate system should match that of the
  * fittedStars these are associated with; typically the common tangent plane.
  *
- * RefStars should ahve their proper motion and parallax corrections pre-applied, so that they are at
+ * RefStars should have their proper motion and parallax corrections pre-applied, so that they are at
  * the same epoch as is stored in Associations.
  */
 class RefStar : public BaseStar {
 public:
-    RefStar(double xx, double yy, double flux, double fluxErr) : BaseStar(xx, yy, flux, fluxErr) {}
+    RefStar(double xx, double yy, double flux, double fluxErr)
+            : BaseStar(xx, yy, flux, fluxErr), _properMotion(nullptr) {}
 
     /// No move or copy: each RefStar is unique, and should be accessed/managed via shared_ptr.
     RefStar(RefStar const&) = delete;
     RefStar(RefStar&&) = delete;
-    RefStar& operator=(RefStar const&) = default;
+    RefStar& operator=(RefStar const&) = delete;
     RefStar& operator=(RefStar&&) = delete;
 
+    // pybind11 cannot handle unique_ptr as arguments, so provide this for python-level testing.
+    void setProperMotion(ProperMotion const& properMotion) {
+        _properMotion = std::make_unique<ProperMotion>(properMotion);
+    }
     // NOTE: we're storing a `ProperMotion const` here: is this a problem?
-    void setProperMotion(std::unique_ptr<ProperMotion> properMotion) {
+    void setProperMotion(std::unique_ptr<ProperMotion const>& properMotion) {
         _properMotion = std::move(properMotion);
     }
-    // ProperMotion getProperMotion() const { return _properMotion; }
 
     /**
      * Apply proper motion correction to the input star, returning a star with PM-corrected coordinates and
@@ -67,9 +73,14 @@ public:
      *
      * @return The star with corrected coordinates.
      */
-    FatPoint& applyProperMotion(FatPoint& star, double timeDeltaYears);
+    std::shared_ptr<MeasuredStar> applyProperMotion(std::shared_ptr<MeasuredStar> star,
+                                                    double timeDeltaYears) const;
 
 private:
+    // RefStars are PM corrected to a common epoch: this is to correct associated MeasuredStars
+    // post-association.
+    // NOTE: I want this to be unique_ptr, but am having trouble with that causing
+    // FittedStar to have implicitly deleted copy constructor...
     std::unique_ptr<ProperMotion const> _properMotion;
 };
 

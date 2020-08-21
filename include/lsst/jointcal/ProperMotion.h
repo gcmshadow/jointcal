@@ -25,18 +25,24 @@
 #ifndef LSST_JOINTCAL_PROPER_MOTION_H
 #define LSST_JOINTCAL_PROPER_MOTION_H
 
-#include <math.h>
+#include <iostream>
+#include <memory>
+#include <math.h>  // atan2
 
-#include "lsst/jointcal/FatPoint.h"
+// #include "lsst/jointcal/MeasuredStar.h"
 
 namespace lsst {
 namespace jointcal {
+
+class MeasuredStar;
 
 /**
  * Proper motion data for a reference star or fitted star.
  *
  * Whether to just use these values or fit them is determined by the RefStar and FittedStar they belong to.
- * Similarly,
+ *
+ * Units are radians/year
+ * Note: RA proper motion is `pm_ra*cos(dec)`
  */
 class ProperMotion {
 public:
@@ -45,10 +51,10 @@ public:
         _offsetBearing = atan2(dec, ra);
     };
 
-    // No copy or move: PM data is stored as shared_ptr, and is immutable.
+    // FALSE! No copy or move: PM data is stored as shared_ptr, and is immutable.
     // PM data is stored as unique_ptr, and we need to move when assigning
-    ProperMotion(ProperMotion const &) = delete;
-    ProperMotion(ProperMotion &&) = delete;
+    ProperMotion(ProperMotion const &) = default;
+    ProperMotion(ProperMotion &&) = default;
     ProperMotion &operator=(ProperMotion const &) = delete;
     ProperMotion &operator=(ProperMotion &&) = delete;
     ~ProperMotion() = default;
@@ -62,10 +68,13 @@ public:
      *
      * @return The star with corrected coordinates.
      */
-    FatPoint &apply(FatPoint &star, double timeDeltaYears);
+    std::shared_ptr<MeasuredStar> apply(std::shared_ptr<MeasuredStar> star, double timeDeltaYears) const;
 
-    // double getRa() { return _ra; }
-    // double getDec() { return _dec; }
+    friend std::ostream &operator<<(std::ostream &stream, ProperMotion const &pm) {
+        stream << "pm_ra*cos(dec)=" << pm._ra << ", pm_dec=" << pm._dec << ", pm_raErr=" << pm._raErr
+               << ", pm_decErr=" << pm._decErr << ", pm_raDecCov=" << pm._raDecCov;
+        return stream;
+    }
 
 private:
     // Proper motion in ra and dec. Units are mas/year
