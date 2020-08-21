@@ -66,10 +66,9 @@ public:
      * Source selection is performed in python, so Associations' constructor
      * only initializes a couple of variables.
      */
-    Associations(double epoch = 0)
+    Associations()
             : _commonTangentPoint(Point(std::numeric_limits<double>::quiet_NaN(),
-                                        std::numeric_limits<double>::quiet_NaN())),
-              _epoch(epoch) {}
+                                        std::numeric_limits<double>::quiet_NaN())) {}
 
     /**
      * Create an Associations object from a pre-built list of ccdImages.
@@ -106,7 +105,8 @@ public:
     //! can be used to project sidereal coordinates related to the image set on a plane.
     Point getCommonTangentPoint() const { return _commonTangentPoint; }
 
-    double getEpoch() { return _epoch; }
+    double getEpoch() const { return _epoch; }
+    void setEpoch(double epoch) { _epoch = epoch; }
 
     /**
      * @brief      Create a ccdImage from an exposure catalog and metadata, and add it to the list.
@@ -222,7 +222,9 @@ private:
      */
     void normalizeFittedStars() const;
 
+    // Common tangent point on-sky of all of the ccdImages, typically determined by computeCommonTangentPoint.
     Point _commonTangentPoint;
+    // Common epoch of all of the ccdImages, typically computed externally via astropy and then set.
     double _epoch;
 };
 

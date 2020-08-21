@@ -557,7 +557,7 @@ class JointcalTask(pipeBase.CmdLineTask):
 
         associations.computeCommonTangentPoint()
         epoch = self._compute_proper_motion_epoch(associations.getCcdImageList())
-        assocations.setEpoch(epoch.jyear)
+        associations.setEpoch(epoch.jyear)
 
         boundingCircle = associations.computeBoundingCircle()
         center = lsst.geom.SpherePoint(boundingCircle.getCenter())
@@ -732,8 +732,7 @@ class JointcalTask(pipeBase.CmdLineTask):
                                      self.config.matchCut*lsst.geom.arcseconds,
                                      fluxField,
                                      refCoordinateErr=refCoordErr,
-                                     rejectBadFluxes=reject_bad_fluxes,
-                                     epoch)
+                                     rejectBadFluxes=reject_bad_fluxes)
         add_measurement(self.job, 'jointcal.collected_%s_refStars' % name,
                         associations.refStarListSize())
 

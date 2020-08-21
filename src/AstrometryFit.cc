@@ -51,8 +51,8 @@ AstrometryFit::AstrometryFit(std::shared_ptr<Associations> associations,
           _nParDistortions(0),
           _nParPositions(0),
           _nParRefrac(_associations->getNFilters()),
-          _posError(posError),
-          _epoch(_associations->getEpoch()) {
+          _epoch(_associations->getEpoch()),
+          _posError(posError) {
     _log = LOG_GET("jointcal.AstrometryFit");
     _JDRef = 0;
 

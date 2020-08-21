@@ -38,7 +38,7 @@ namespace {
 
 void declareAssociations(py::module &mod) {
     py::class_<Associations, std::shared_ptr<Associations>> cls(mod, "Associations");
-    cls.def(py::init<double>(), "epoch"_a);
+    cls.def(py::init<>());
     cls.def(py::init<CcdImageList const &, double>(), "imageList"_a, "epoch"_a);
 
     // NOTE: these could go away if the lists they wrap can be accessed directly.
@@ -65,6 +65,9 @@ void declareAssociations(py::module &mod) {
     cls.def("getCommonTangentPoint", &Associations::getCommonTangentPoint);
     cls.def("setCommonTangentPoint", &Associations::setCommonTangentPoint);
     cls.def("computeCommonTangentPoint", &Associations::computeCommonTangentPoint);
+
+    cls.def("getEpoch", &Associations::getEpoch);
+    cls.def("setEpoch", &Associations::setEpoch);
 }
 
 PYBIND11_MODULE(associations, mod) {
