@@ -33,8 +33,11 @@ namespace jointcal {
 
 std::shared_ptr<MeasuredStar> ProperMotion::apply(std::shared_ptr<MeasuredStar> star,
                                                   double timeDeltaYears) const {
+    std::cout << "HERE!!!!!!!!!!!!:   " << star->x << " " << star->y << std::endl;
     geom::SpherePoint spherePoint(star->x, star->y, geom::degrees);
+    std::cout << "now here" << std::endl;
     double amount = std::hypot(_ra * timeDeltaYears, _dec * timeDeltaYears);
+    std::cout << "hypot " << amount << std::endl;
     auto result = spherePoint.offset(_offsetBearing * geom::radians, amount * geom::radians);
     auto newStar = std::make_shared<MeasuredStar>(*star);
     std::cout << "%%%%%%%%%%%%%%%%%%%%%%" << std::endl;

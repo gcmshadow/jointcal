@@ -31,8 +31,8 @@ import lsst.jointcal.star
 
 class TestProperMotion(lsst.utils.tests.TestCase):
     def setUp(self):
-        self.ra = 10 * u.degree
-        self.dec = 20 * u.degree
+        self.ra = 300 * u.degree
+        self.dec = 80 * u.degree
         self.pm_ra = 30 * u.mas / u.yr  # ra*cos(dec)
         self.pm_dec = 40 * u.mas / u.yr
         flux = 10
@@ -75,12 +75,11 @@ class TestProperMotion(lsst.utils.tests.TestCase):
         self.assertEqual(self.ra.to_value(u.degree)*0.01, self.measuredStar.vx)
         self.assertEqual(self.dec.to_value(u.degree)*0.01, self.measuredStar.vy)
         print("")
-        print("ref:", self.refStar)
-        print("meas:", self.measuredStar)
-        print("coord:", self.coord)
+        print("MEAS:", self.measuredStar)
+        print("COORD:", self.coord)
         print("PM:", self.properMotion)
-        print("expect:", expect)
-        print("result:", result)
+        print("EXPECT:", expect)
+        print("RESULT:", result)
 
         self.assertEqual(result.x, expect.ra.to_value(u.degree))
         self.assertEqual(result.y, expect.dec.to_value(u.degree))
