@@ -162,7 +162,7 @@ private:
     void getIndicesOfMeasuredStar(MeasuredStar const &measuredStar, IndexVector &indices) const override;
 
     Point transformFittedStar(FittedStar const &fittedStar, AstrometryTransform const &sky2TP,
-                              Point const &refractionVector, double refractionCoeff, double mjd) const;
+                              Point const &refractionVector, double refractionCoeff, double deltaYears) const;
 
     /// Compute the chi2 (per star or total, depending on which Chi2Accumulator is used) from one CcdImage.
     void accumulateStatImage(CcdImage const &ccdImage, Chi2Accumulator &accum) const;

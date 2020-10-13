@@ -80,8 +80,9 @@ the derivatives, when computing the Chi2, when filling a tuple.
 */
 Point AstrometryFit::transformFittedStar(FittedStar const &fittedStar, AstrometryTransform const &sky2TP,
                                          Point const &refractionVector, double refractionCoeff,
-                                         double mjd) const {
+                                         double deltaYears) const {
     Point fittedStarInTP = sky2TP.apply(fittedStar);
+    fittedStar.getRefStar().applyProperMotion(fittedStarInTP);
     // if (fittedStar.mightMove) {
     //     fittedStarInTP.x += fittedStar.pmx * mjd;
     //     fittedStarInTP.y += fittedStar.pmy * mjd;
@@ -194,7 +195,7 @@ void AstrometryFit::leastSquareDerivativesMeasurement(CcdImage const &ccdImage, 
         std::shared_ptr<FittedStar const> const fs = ms.getFittedStar();
 
         Point fittedStarInTP =
-                transformFittedStar(*fs, *sky2TP, refractionVector, _refractionCoefficient, mjd);
+                transformFittedStar(*fs, *sky2TP, refractionVector, _refractionCoefficient, deltaYears);
 
         // compute derivative of TP position w.r.t sky position ....
         if (npar_pos > 0)  // ... if actually fitting FittedStar position
@@ -382,7 +383,7 @@ void AstrometryFit::accumulateStatImage(CcdImage const &ccdImage, Chi2Accumulato
 
         std::shared_ptr<FittedStar const> const fs = ms->getFittedStar();
         Point fittedStarInTP =
-                transformFittedStar(*fs, *sky2TP, refractionVector, _refractionCoefficient, mjd);
+                transformFittedStar(*fs, *sky2TP, refractionVector, _refractionCoefficient, deltaYears);
 
         Eigen::Vector2d res(fittedStarInTP.x - outPos.x, fittedStarInTP.y - outPos.y);
         double chi2Val = res.transpose() * transW * res;
@@ -588,7 +589,7 @@ void AstrometryFit::saveChi2MeasContributions(std::string const &filename) const
             std::shared_ptr<FittedStar const> const fs = ms->getFittedStar();
 
             Point fittedStarInTP =
-                    transformFittedStar(*fs, *sky2TP, refractionVector, _refractionCoefficient, mjd);
+                    transformFittedStar(*fs, *sky2TP, refractionVector, _refractionCoefficient, deltaYears);
             Point res = tpPos - fittedStarInTP;
             Point inputRes = inputTpPos - fittedStarInTP;
             double det = tpPos.vx * tpPos.vy - std::pow(tpPos.vxy, 2);
