@@ -440,7 +440,7 @@ class TestJointcalComputePMDate(JointcalTestBase, lsst.utils.tests.TestCase):
 
         jointcal = lsst.jointcal.JointcalTask(config=self.config, butler=self.butler)
         result = jointcal._compute_proper_motion_epoch(ccdImageList)
-        self.assertEqual(result.mjd, mjds.mean())
+        self.assertEqual(result.mjd, 2000 + (mjds.mean() - 2451544.50)/365.25)
 
 
 class MemoryTester(lsst.utils.tests.MemoryTestCase):
