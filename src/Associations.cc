@@ -331,7 +331,7 @@ void Associations::associateRefStars(double matchCutInArcSec, const AstrometryTr
 
 void Associations::prepareFittedStars(int minMeasurements) {
     selectFittedStars(minMeasurements);
-    _applyProperMotions();
+    // _applyProperMotions();
     normalizeFittedStars();
 }
 
@@ -380,18 +380,20 @@ void Associations::selectFittedStars(int minMeasurements) {
     LOGLS_INFO(_log, "Total, valid number of Measured stars: " << totalMeasured << ", " << validMeasured);
 }
 
-void Associations::_applyProperMotions() const {
-    for (auto const &ccdImage : ccdImageList) {
-        for (auto &measuredStar : ccdImage->getCatalogForFit()) {
-            auto fittedStar = measuredStar->getFittedStar();
-            if (fittedStar->getRefStar()) {
-                // NOTE: MJD is not the right time unit here! We want something in years, not days...
-                double deltaYears = _epoch - ccdImage->getMjd();
-                measuredStar = fittedStar->getRefStar()->applyProperMotion(measuredStar, deltaYears);
-            }
-        }
-    }
-}
+// void Associations::_applyProperMotions() const {
+//     for (auto const &ccdImage : ccdImageList) {
+//         std::cout << "processing: " << ccdImage->getName() << std::endl;
+//         for (auto &measuredStar : ccdImage->getCatalogForFit()) {
+//             auto fittedStar = measuredStar->getFittedStar();
+//             if (fittedStar->getRefStar()) {
+//                 double deltaYears = _epoch - ccdImage->getEpoch();
+//                 std::cout << *fittedStar << " " << deltaYears << std::endl;
+//                 std::cout << *measuredStar << std::endl;
+//                 // measuredStar = fittedStar->getRefStar()->applyProperMotion(measuredStar, deltaYears);
+//             }
+//         }
+//     }
+// }
 
 void Associations::normalizeFittedStars() const {
     // Clear positions in order to take the average of the measuredStars.

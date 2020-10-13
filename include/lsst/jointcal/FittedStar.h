@@ -84,7 +84,7 @@ public:
         _fluxErr = 0;
         _mag = 0;
         _magErr = 0;
-        _properMotion.reset();
+        // _properMotion.reset();
     }
 
     //!
@@ -123,7 +123,7 @@ private:
     const RefStar* _refStar;
 
     // null if we have a refStar with proper motion data.
-    std::unique_ptr<const ProperMotion> _properMotion;
+    // std::unique_ptr<const ProperMotion> _properMotion;
     // Do we fit proper motions for this object?
     bool _fitProperMotion;
 };

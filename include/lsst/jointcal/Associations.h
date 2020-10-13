@@ -212,7 +212,7 @@ private:
      * Call this after selectFittedStars() but before normalizeFittedStars(): it assumes assumes that each
      * measuredStar points to a fittedStar.
      */
-    void _applyProperMotions() const;
+    // void _applyProperMotions() const;
 
     /**
      * Make fitted star positions and fluxes be the average of their measured stars.
