@@ -139,7 +139,6 @@ private:
     double _referenceColor, _sigCol;  // average and r.m.s color
     double _refractionCoefficient;    // fit parameter
     Eigen::Index _refracPosInMatrix;  // where it stands
-    double _JDRef;                    // average Julian date
     double _epoch;  // epoch to correct proper motion/parallax to (Julian Epoch year, e.g. J2000.0)
 
     // counts in parameter subsets.

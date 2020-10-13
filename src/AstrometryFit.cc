@@ -54,7 +54,6 @@ AstrometryFit::AstrometryFit(std::shared_ptr<Associations> associations,
           _epoch(_associations->getEpoch()),
           _posError(posError) {
     _log = LOG_GET("jointcal.AstrometryFit");
-    _JDRef = 0;
 
     _posError = posError;
 
@@ -141,7 +140,7 @@ void AstrometryFit::leastSquareDerivativesMeasurement(CcdImage const &ccdImage, 
     if (_fittingDistortions) mapping->getMappingIndices(indices);
 
     // proper motion stuff
-    double mjd = ccdImage.getMjd() - _JDRef;
+    double deltaYears = ccdImage.getEpoch() - _epoch;
     // refraction stuff
     Point refractionVector = ccdImage.getRefractionVector();
     // transformation from sky to TP
@@ -353,7 +352,7 @@ void AstrometryFit::accumulateStatImage(CcdImage const &ccdImage, Chi2Accumulato
     // 1 : get the Mapping's
     const AstrometryMapping *mapping = _astrometryModel->getMapping(ccdImage);
     // proper motion stuff
-    double mjd = ccdImage.getMjd() - _JDRef;
+    double deltaYears = ccdImage.getEpoch() - _epoch;
     // refraction stuff
     Point refractionVector = ccdImage.getRefractionVector();
     // transformation from sky to TP
@@ -547,7 +546,7 @@ void AstrometryFit::saveChi2MeasContributions(std::string const &filename) const
     ofile << "#id" << separator << "xccd" << separator << "yccd " << separator;
     ofile << "rx" << separator << "ry" << separator;
     ofile << "xtp" << separator << "ytp" << separator;
-    ofile << "mag" << separator << "mjd" << separator;
+    ofile << "mag" << separator << "deltaYears" << separator;
     ofile << "xErr" << separator << "yErr" << separator << "xyCov" << separator;
     ofile << "xtpi" << separator << "ytpi" << separator;
     ofile << "rxi" << separator << "ryi" << separator;
@@ -559,7 +558,7 @@ void AstrometryFit::saveChi2MeasContributions(std::string const &filename) const
     ofile << "#id in source catalog" << separator << "coordinates in CCD (pixels)" << separator << separator;
     ofile << "residual on TP (degrees)" << separator << separator;
     ofile << "transformed coordinate in TP (degrees)" << separator << separator;
-    ofile << "rough magnitude" << separator << "Modified Julian Date of the measurement" << separator;
+    ofile << "rough magnitude" << separator << "Julian epoch year delta from fit epoch" << separator;
     ofile << "transformed measurement uncertainty (degrees)" << separator << separator << separator;
     ofile << "as-read position on TP (degrees)" << separator << separator;
     ofile << "as-read residual on TP (degrees)" << separator << separator;
@@ -575,7 +574,7 @@ void AstrometryFit::saveChi2MeasContributions(std::string const &filename) const
         const AstrometryMapping *mapping = _astrometryModel->getMapping(*ccdImage);
         const auto readTransform = ccdImage->getReadWcs();
         const Point &refractionVector = ccdImage->getRefractionVector();
-        double mjd = ccdImage->getMjd() - _JDRef;
+        double deltaYears = ccdImage->getEpoch() - _epoch;
         for (auto const &ms : cat) {
             if (!ms->isValid()) continue;
             FatPoint tpPos;
@@ -602,7 +601,7 @@ void AstrometryFit::saveChi2MeasContributions(std::string const &filename) const
             ofile << ms->getId() << separator << ms->x << separator << ms->y << separator;
             ofile << res.x << separator << res.y << separator;
             ofile << tpPos.x << separator << tpPos.y << separator;
-            ofile << fs->getMag() << separator << mjd << separator;
+            ofile << fs->getMag() << separator << deltaYears << separator;
             ofile << tpPos.vx << separator << tpPos.vy << separator << tpPos.vxy << separator;
             ofile << inputTpPos.x << separator << inputTpPos.y << separator;
             ofile << inputRes.x << separator << inputRes.y << separator;

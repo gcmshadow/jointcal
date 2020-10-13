@@ -666,8 +666,8 @@ class JointcalTask(pipeBase.CmdLineTask):
         epoch : `astropy.time.Time`
             The date to use for proper motion corrections.
         """
-        mjds = [ccdImage.getMjd() for ccdImage in ccdImageList]
-        return astropy.time.Time(np.mean(mjds), format='mjd', scale="tai")
+        epochs = [ccdImage.getEpoch() for ccdImage in ccdImageList]
+        return astropy.time.Time(np.mean(epochs), format='jyear', scale="tai")
 
     def _do_load_refcat_and_fit(self, associations, defaultFilter, center, radius, epoch,
                                 filters=[],
