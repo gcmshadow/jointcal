@@ -31,8 +31,8 @@
 namespace lsst {
 namespace jointcal {
 
-std::shared_ptr<MeasuredStar> ProperMotion::apply(std::shared_ptr<MeasuredStar> star,
-                                                  double timeDeltaYears) const {
+std::shared_ptr<FittedStar> ProperMotion::apply(std::shared_ptr<FittedStar> star,
+                                                double timeDeltaYears) const {
     std::cout << "HERE!!!!!!!!!!!!:   " << star->x << " " << star->y << std::endl;
     geom::SpherePoint spherePoint(star->x, star->y, geom::degrees);
     std::cout << "now here" << std::endl;

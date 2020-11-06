@@ -68,7 +68,7 @@ public:
      *
      * @return The star with corrected coordinates.
      */
-    std::shared_ptr<FatPoint> apply(std::shared_ptr<FatPoint> star, double timeDeltaYears) const;
+    std::shared_ptr<FittedStar> apply(std::shared_ptr<FittedStar> star, double timeDeltaYears) const;
 
     friend std::ostream &operator<<(std::ostream &stream, ProperMotion const &pm) {
         stream << "pm_ra*cos(dec)=" << pm._ra << ", pm_dec=" << pm._dec << ", pm_raErr=" << pm._raErr

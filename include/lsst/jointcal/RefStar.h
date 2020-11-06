@@ -73,8 +73,8 @@ public:
      *
      * @return The star with corrected coordinates.
      */
-    std::shared_ptr<MeasuredStar> applyProperMotion(std::shared_ptr<MeasuredStar> star,
-                                                    double timeDeltaYears) const;
+    std::shared_ptr<FittedStar> applyProperMotion(std::shared_ptr<FittedStar> star,
+                                                  double timeDeltaYears) const;
 
 private:
     // RefStars are PM corrected to a common epoch: this is to correct associated MeasuredStars

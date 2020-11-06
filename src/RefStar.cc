@@ -31,8 +31,8 @@
 namespace lsst {
 namespace jointcal {
 
-std::shared_ptr<MeasuredStar> RefStar::applyProperMotion(std::shared_ptr<MeasuredStar> star,
-                                                         double timeDeltaYears) const {
+std::shared_ptr<FittedStar> RefStar::applyProperMotion(std::shared_ptr<FittedStar> star,
+                                                       double timeDeltaYears) const {
     if (_properMotion == nullptr) {
         return star;
     } else {
