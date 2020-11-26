@@ -21,8 +21,13 @@
 
 import copy
 import os
+import shutil
+
+import click.testing
 
 import lsst.afw.image.utils
+import lsst.ctrl.mpexec.cli.pipetask
+import lsst.daf.butler
 import lsst.obs.base
 import lsst.geom
 
@@ -253,3 +258,75 @@ class JointcalTestBase:
                     self.assertFloatsAlmostEqual(value, expect[key.metric], msg=key.metric, rtol=1e-5)
                 else:
                     self.assertEqual(value, expect[key.metric], msg=key.metric)
+
+    def _importRepository(self, instrument, exportPath, exportFile):
+        """Import a gen3 test repository into self.testDir
+
+        NOTE: this is lifted from Eli's work on DM-24318, and should be moved
+        to a common place, maybe pipe_base?
+
+        Parameters
+        ----------
+        instrument : `str`
+            Full string name for the instrument.
+        exportPath : `str`
+            Path to location of repository to export.
+            This path must contain an `exports.yaml` file containing the
+            description of the exported gen3 repo that will be imported.
+        exportFile : `str`
+            Filename of export data.
+        """
+        self.repo = os.path.join(self.output_dir, 'testrepo')
+
+        # Make the repo and retrieve a writeable Butler
+        _ = lsst.daf.butler.Butler.makeRepo(self.repo)
+        butler = lsst.daf.butler.Butler(self.repo, writeable=True)
+        # Register the instrument
+        instrInstance = lsst.obs.base.utils.getInstrument(instrument)
+        instrInstance.register(butler.registry)
+        # Import the exportFile
+        butler.import_(directory=exportPath, filename=exportFile,
+                       transfer='symlink',
+                       skip_dimensions={'instrument', 'detector', 'physical_filter'})
+
+    def _runPipeline(self, repo, pipelineFile=None, queryString=None,
+                     inputCollections=None, outputCollection=None,
+                     configFiles=None, configOptions=None,
+                     registerDatasetTypes=False):
+        """Run a pipeline via pipetask.
+        """
+        pipelineArgs = ["run",
+                        "-b", repo,
+                        # "-p", pipelineFile]
+                        "-t lsst.jointcal.JointcalTask"]
+
+        if queryString is not None:
+            pipelineArgs.extend(["-d", queryString])
+        if inputCollections is not None:
+            pipelineArgs.extend(["-i", inputCollections])
+        if outputCollection is not None:
+            pipelineArgs.extend(["-o", outputCollection])
+        if configFiles is not None:
+            for configFile in configFiles:
+                pipelineArgs.extend(["-C", configFile])
+        if configOptions is not None:
+            for configOption in configOptions:
+                pipelineArgs.extend(["-c", configOption])
+        if registerDatasetTypes:
+            pipelineArgs.extend(["--register-dataset-types"])
+
+        runner = click.testing.CliRunner()
+        results = runner.invoke(lsst.ctrl.mpexec.cli.pipetask.cli, pipelineArgs)
+        if results.exception:
+            raise RuntimeError("Pipeline %s failed." % (pipelineFile)) from results.exception
+        return results.exit_code
+
+    def _runGen3Jointcal(self, instrument, queryString):
+        self._importRepository("lsst.obs.subaru.HyperSuprimeCam",
+                               self.input_dir,
+                               os.path.join(self.input_dir, "exports.yaml"))
+        self._runPipeline(self.repo,
+                          outputCollection=f"{instrument}/testdata/jointcal",
+                          inputCollections=f"refcats,{instrument}/testdata,{instrument}/calib/unbounded",
+                          queryString=queryString,
+                          registerDatasetTypes=True)
