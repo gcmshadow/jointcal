@@ -21,6 +21,7 @@
 
 import dataclasses
 import collections
+import itertools
 import os
 
 import astropy.time
@@ -36,11 +37,11 @@ import lsst.pex.exceptions as pexExceptions
 import lsst.afw.cameraGeom
 import lsst.afw.table
 import lsst.log
-import lsst.meas.algorithms
 from lsst.pipe.tasks.colorterms import ColortermLibrary
 from lsst.verify import Job, Measurement
 
-from lsst.meas.algorithms import LoadIndexedReferenceObjectsTask, ReferenceSourceSelectorTask
+from lsst.meas.algorithms import (LoadIndexedReferenceObjectsTask, ReferenceSourceSelectorTask,
+                                  ReferenceObjectLoader)
 from lsst.meas.algorithms.sourceSelector import sourceSelectorRegistry
 
 from .dataIds import PerTractCcdDataIdContainer
@@ -138,7 +139,91 @@ class JointcalRunner(pipeBase.ButlerInitializedTaskRunner):
             return pipeBase.Struct(exitStatus=exitStatus)
 
 
-class JointcalConfig(pexConfig.Config):
+def tractLookup(datasetType, registry, quantumDataId, collections):
+    """Lookup function to identify all visits that overlap a tract.
+    """
+    visitDataIds = registry.queryDataIds(['instrument', 'visit'],
+                                         datasets=datasetType,
+                                         dataId=quantumDataId,
+                                         collections=collections)
+    results = [registry.queryDatasets(datasetType,
+                                      collections=collections,
+                                      dataId=dataId,
+                                      findFirst=True) for dataId in visitDataIds]
+    return itertools.chain.from_iterable(results)
+
+
+class JointcalTaskConnections(pipeBase.PipelineTaskConnections,
+                              dimensions=("skymap", "tract", "instrument", "physical_filter")):
+    inputCatalogs = pipeBase.connectionTypes.PrerequisiteInput(
+        doc="The definition of the input catalog dataset type.",
+        name="src",
+        storageClass="SourceCatalog",
+        dimensions=("instrument", "visit", "detector"),
+        multiple=True,
+        deferLoad=True,
+        lookupFunction=tractLookup
+    )
+    inputExposures = pipeBase.connectionTypes.PrerequisiteInput(
+        doc=("The definition of the input exposure dataset type."
+             "The exposure itself is not needed: individual components are loaded separately."),
+        name="calexp",
+        storageClass="ExposureF",
+        dimensions=("instrument", "visit", "detector"),
+        multiple=True,
+        deferLoad=True,
+        lookupFunction=tractLookup
+    )
+    inputCamera = pipeBase.connectionTypes.Input(
+        doc="The definition of the input camera dataset type.",
+        name="camera",
+        storageClass="Camera",
+        dimensions=("instrument",),
+        isCalibration=True
+    )
+    # TBD: will this not load enough refcat data e.g., the default is only to get
+    # refcats touch the tract, but we might need to go larger because we're loading
+    # visits that may extend further?
+    astrometryRefCat = pipeBase.connectionTypes.Input(
+        doc="The definition of the astrometry reference catalog dataset type.",
+        name="gaia_dr2_20200414",
+        storageClass="SimpleCatalog",
+        dimensions=("htm7",),
+        deferLoad=True,
+        multiple=True
+    )
+    photometryRefCat = pipeBase.connectionTypes.Input(
+        doc="The definition of the photometry reference catalog dataset type.",
+        name="ps1_pv3_3pi_20170110",
+        storageClass="SimpleCatalog",
+        dimensions=("htm7",),
+        deferLoad=True,
+        multiple=True
+    )
+    outputWcs = pipeBase.connectionTypes.Output(
+        doc=("The definition of the WCS output dataset type."
+             " Note that the output data is only written for visit+detector combinations that overlap"
+             " the tract, not for all of the output data (we load more detector data)."
+             " NOTE: this should be fixed with DM-21904, to enable data output beyond the tract edge."),
+        name="jointcal_wcs",
+        storageClass="Wcs",
+        dimensions=("instrument", "visit", "detector", "skymap", "tract"),
+        multiple=True
+    )
+    outputPhotoCalib = pipeBase.connectionTypes.Output(
+        doc="The definition of the PhotoCalib output dataset type.",
+        name="jointcal_photoCalib",
+        storageClass="PhotoCalib",
+        dimensions=("instrument", "visit", "detector", "skymap", "tract"),
+        multiple=True
+    )
+    # outputMetrics = pipeBase.connectionTypes.Output(
+    #     doc="Measurements of metrics"
+    # )
+
+
+class JointcalConfig(pipeBase.PipelineTaskConfig,
+                     pipelineConnections=JointcalTaskConnections):
     """Configuration for JointcalTask"""
 
     doAstrometry = pexConfig.Field(
@@ -421,29 +506,160 @@ class JointcalTask(pipeBase.PipelineTask, pipeBase.CmdLineTask):
         Used to initialize the astrometry and photometry refObjLoaders.
     profile_jointcal : `bool`
         Set to True to profile different stages of this jointcal run.
+    initInputs : `dict`, optional
+        Dictionary used to initialize PipelineTasks (empty for jointcal).
     """
 
     ConfigClass = JointcalConfig
     RunnerClass = JointcalRunner
     _DefaultName = "jointcal"
 
-    def __init__(self, butler=None, profile_jointcal=False, **kwargs):
+    def __init__(self, butler=None, profile_jointcal=False, initInputs=None, **kwargs):
         super().__init__(**kwargs)
         self.profile_jointcal = profile_jointcal
         self.makeSubtask("sourceSelector")
         if self.config.doAstrometry:
-            self.makeSubtask('astrometryRefObjLoader', butler=butler)
+            if initInputs is None:
+                # gen3 middleware does refcat things internally (and will not have a butler here)
+                self.makeSubtask('astrometryRefObjLoader', butler=butler)
             self.makeSubtask("astrometryReferenceSelector")
         else:
             self.astrometryRefObjLoader = None
         if self.config.doPhotometry:
-            self.makeSubtask('photometryRefObjLoader', butler=butler)
+            if initInputs is None:
+                # gen3 middleware does refcat things internally (and will not have a butler here)
+                self.makeSubtask('photometryRefObjLoader', butler=butler)
             self.makeSubtask("photometryReferenceSelector")
         else:
             self.photometryRefObjLoader = None
 
         # To hold various computed metrics for use by tests
         self.job = Job.load_metrics_package(subset='jointcal')
+
+    def runQuantum(self, butlerQC, inputRefs, outputRefs):
+        # We override runQuantum to set up the refObjLoaders.
+        inputs = butlerQC.get(inputRefs)
+        # We want the tract number for writing debug files
+        tract = butlerQC.quantum.dataId['tract']
+        if self.config.doAstrometry:
+            self.astrometryRefObjLoader = ReferenceObjectLoader(
+                dataIds=[ref.datasetRef.dataId
+                         for ref in inputRefs.astrometryRefCat],
+                refCats=inputs.pop('astrometryRefCat'),
+                config=self.config.astrometryRefObjLoader,
+                log=self.log)
+        if self.config.doPhotometry:
+            self.photometryRefObjLoader = ReferenceObjectLoader(
+                dataIds=[ref.datasetRef.dataId
+                         for ref in inputRefs.photometryRefCat],
+                refCats=inputs.pop('photometryRefCat'),
+                config=self.config.photometryRefObjLoader,
+                log=self.log)
+        outputs = self.run(**inputs, tract=tract)
+        butlerQC.put(outputs, outputRefs)
+
+    def run(self, inputCatalogs, inputExposures, inputCamera, tract=None):
+        """
+        Parameters
+        ----------
+        inputCatalogs: `list` [`lsst.daf.butler.DeferredDatasetHandle`]
+            The input SourceCatalogs.
+        inputExposures: `list` [`lsst.daf.butler.DeferredDatasetHandle`]
+            The input exposure images, which are used for their metadata,
+            not for the pixel values themselves.
+        inputCamera: `lsst.afw.cameraGeom.Camera`
+            The camera being processed.
+        tract: `int`, optional
+            The sky tract being processed; for naming output debug files.
+        """
+        # Write a proxy class to make gen2 dataRefs behave like gen3 deferredDatasetHandles?
+        # Then we can just have `run()` which behaves like the existing runDataRef()
+        # and leave runDataRef() as is (it will still be called by JointcalRunner in gen2);
+        # gen3 will call this `run()` and I can have separate loaders if I want them,
+        # and just clearly mark them as gen2 and gen3, for future deletion.
+        #  now a dict of deferred datasets, which I can query
+        # individually to load what I need.
+        # how exactly to get what I need from the deferredHandles: calexps you can do
+        # e.g. `.get('wcs')`
+
+        sourceFluxField = "slot_%sFlux" % (self.config.sourceFluxType,)
+        jointcalControl = lsst.jointcal.JointcalControl(sourceFluxField)
+        associations = lsst.jointcal.Associations()
+        self.focalPlaneBBox = inputCamera.getFpBBox()
+        oldWcsList, filters, visit_ccd_to_dataRef = self._load_data(inputExposures,
+                                                                    inputCatalogs,
+                                                                    associations,
+                                                                    jointcalControl)
+
+        boundingCircle, center, radius, defaultFilter = self._prep_sky(associations, filters)
+
+        if self.config.doAstrometry:
+            astrometry = self._do_load_refcat_and_fit(associations, defaultFilter, center, radius,
+                                                      name="astrometry",
+                                                      refObjLoader=self.astrometryRefObjLoader,
+                                                      referenceSelector=self.astrometryReferenceSelector,
+                                                      fit_function=self._fit_astrometry,
+                                                      tract=tract)
+            self._write_astrometry_results(associations, astrometry.model, visit_ccd_to_dataRef)
+        else:
+            astrometry = Astrometry(None, None, None)
+
+        if self.config.doPhotometry:
+            photometry = self._do_load_refcat_and_fit(associations, defaultFilter, center, radius,
+                                                      name="photometry",
+                                                      refObjLoader=self.photometryRefObjLoader,
+                                                      referenceSelector=self.photometryReferenceSelector,
+                                                      fit_function=self._fit_photometry,
+                                                      tract=tract,
+                                                      filters=filters,
+                                                      reject_bad_fluxes=True)
+            self._write_photometry_results(associations, photometry.model, visit_ccd_to_dataRef)
+        else:
+            photometry = Photometry(None, None)
+
+        return pipeBase.Struct(outputWcs=[],
+                               outputPhotoCalib=[],
+                               oldWcsList=oldWcsList,
+                               job=self.job,
+                               astrometryRefObjLoader=self.astrometryRefObjLoader,
+                               photometryRefObjLoader=self.photometryRefObjLoader,
+                               defaultFilter=defaultFilter)
+        # return pipeBase.Struct(dataRefs=dataRefs,
+        #                        oldWcsList=oldWcsList,
+        #                        job=self.job,
+        #                        astrometryRefObjLoader=self.astrometryRefObjLoader,
+        #                        photometryRefObjLoader=self.photometryRefObjLoader,
+        #                        defaultFilter=defaultFilter,
+        #                        exitStatus=exitStatus)
+
+    def _load_data(self, inputExposures, inputCatalogs, associations, jointcalControl):
+        """Read the data that jointcal needs to run. (Gen3 version)"""
+        visit_ccd_to_dataRef = {}
+        oldWcsList = []
+        filters = []
+        load_cat_prof_file = 'jointcal_loadData.prof' if self.config.detailedProfile else ''
+        with pipeBase.cmdLineTask.profile(load_cat_prof_file):
+            for exposure, catalog in zip(inputExposures, inputCatalogs):
+                data = self._load_one_exposure(exposure, catalog)
+                result = self._build_ccdImage(data, associations, jointcalControl)
+                oldWcsList.append(result.wcs)
+                # NOTE: do we need something like this for writing the output?
+                # visit_ccd_to_dataRef[result.key] = dataRef
+                filters.append(result.filter)
+        filters = collections.Counter(filters)
+
+        return oldWcsList, filters, visit_ccd_to_dataRef
+
+    def _load_one_exposure(self, exposure, catalog):
+        data = JointcalInputData(visit=exposure.dataId['visit'],
+                                 catalog=catalog.get(),
+                                 visitInfo=exposure.get(component='visitInfo'),
+                                 detector=exposure.get(component='detector'),
+                                 photoCalib=exposure.get(component='photoCalib'),
+                                 wcs=exposure.get(component='wcs'),
+                                 bbox=exposure.get(component='bbox'),
+                                 filter=exposure.get(component='filter'))
+        return data
 
     # We don't currently need to persist the metadata.
     # If we do in the future, we will have to add appropriate dataset templates
