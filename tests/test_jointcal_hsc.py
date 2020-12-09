@@ -96,7 +96,6 @@ class JointcalTestHSC(jointcalTestBase.JointcalTestBase, lsst.utils.tests.TestCa
                    }
         self._testJointcalTask(2, self.dist_rms_relative, self.dist_rms_absolute, pa1, metrics=metrics)
 
-    @unittest.skip("This test cannot be run until gen3 jointcal is fully implemented.")
     def test_jointcalTask_2_visits_simple_gen3(self):
         self.config = lsst.jointcal.jointcal.JointcalConfig()
         self.config.astrometryModel = "simple"
