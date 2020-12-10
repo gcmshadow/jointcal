@@ -106,7 +106,7 @@ class JointcalTestHSC(jointcalTestBase.JointcalTestBase, lsst.utils.tests.TestCa
         self.configfiles.append(test_config)
 
         queryString = "instrument='HSC' and tract=9697 and skymap='deepCoadd_skyMap'"
-        self._runGen3Jointcal("HSC", queryString)
+        self._runGen3Jointcal("lsst.obs.subaru.HyperSuprimeCam", "HSC", queryString)
 
     def test_jointcalTask_10_visits_simple_astrometry_no_photometry(self):
         """Test all 10 visits with different filters.
